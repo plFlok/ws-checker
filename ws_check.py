@@ -1,13 +1,11 @@
 import asyncio
-import json
 import os
 import subprocess
-import time
-import websockets
 
+from ws_client import send_adts_frames
 
+SHAZAM_WS_URL = os.getenv("SHAZAM_WS_URL")
 ADTS_HEADER_SIZE = 7
-proceed_search = True
 
 def transcode_to_adts(input_file: str, output_file: str) -> None:
     subprocess.run([
@@ -28,38 +26,7 @@ def extract_adts_frames(adts_data: bytes) -> list[bytes]:
         i += frame_length
     return frames
 
-async def receive_messages(websocket):
-    global proceed_search
-    async for message in websocket:
-        data = json.loads(message)
-        if data["status"] == "SUCCESS" and data["found"] == True:
-            proceed_search = False
-        print(f"Got message: {message}")
-
-async def send_adts_frames(uri: str, frames: list[bytes], frame_duration_ms: float = 23.2):
-    global proceed_search
-    frame_duration = frame_duration_ms / 1000.0
-    try:
-        async with websockets.connect(uri) as websocket:
-            receiver = asyncio.create_task(receive_messages(websocket))
-
-            for i, frame in enumerate(frames):
-                if not proceed_search:
-                    break
-                start_time = time.perf_counter()
-                print(f"Sending frame {i}, size={len(frame)} bytes")
-                await websocket.send(frame)
-                time_taken = time.perf_counter() - start_time
-                time_sleep = max(frame_duration - time_taken, 0.0)
-                await asyncio.sleep(time_sleep)
-
-            await receiver
-    except Exception as e:
-        print(f"error while sending frames: {e}")
-
-
-
-def main():
+def main_mp3():
     input_file = "demo.mp3"
     adts_file = "output.aac"
 
@@ -78,4 +45,4 @@ def main():
     ))
 
 if __name__ == "__main__":
-    main()
+    main_mp3()
